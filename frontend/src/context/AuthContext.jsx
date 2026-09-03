@@ -9,6 +9,13 @@ export const AuthProvider = ({ children }) => {
 
   // Load authenticated user on initial app render
   useEffect(() => {
+    // DEMO MODE ONLY — authentication bypass enabled for hackathon demo
+    if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      setUser({ name: 'DealPilot Demo', email: 'demo@dealpilot.ai', role: 'admin' });
+      setLoading(false);
+      return;
+    }
+
     const checkAuthStatus = async () => {
       try {
         const response = await authAPI.getCurrentUser();

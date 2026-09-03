@@ -25,14 +25,16 @@ import Integrations from './pages/Integrations';
 import Settings from './pages/Settings';
 
 export default function App() {
+  const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
+
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           {/* Public Auth Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/login" element={isDemo ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/register" element={isDemo ? <Navigate to="/dashboard" replace /> : <Register />} />
+          <Route path="/forgot-password" element={isDemo ? <Navigate to="/dashboard" replace /> : <ForgotPassword />} />
 
           {/* Protected Application Routes */}
           <Route

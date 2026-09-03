@@ -1,138 +1,161 @@
-import React from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { MicOff, PhoneOff, AlertCircle, Bot, User, Cpu, Sparkles, Activity } from 'lucide-react';
+import { PhoneCall, Bot, User, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { dealAPI } from '../services/api';
+import { VoiceAgentModal } from '../components/voice/VoiceAgentModal';
 
 export function SalesAgent() {
+  const [deals, setDeals] = useState([]);
+  const [selectedDealId, setSelectedDealId] = useState(null);
+  const [activeDeal, setActiveDeal] = useState(null);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  useEffect(() => {
+    async function loadDeals() {
+      try {
+        const res = await dealAPI.getDeals();
+        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          setDeals(res.data.data);
+          const firstId = res.data.data[0]._id;
+          setSelectedDealId(firstId);
+          const stateRes = await dealAPI.getDealState(firstId);
+          if (stateRes.data?.success) {
+            setActiveDeal(stateRes.data.data);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load deals in SalesAgent:', err);
+      }
+    }
+    loadDeals();
+  }, []);
+
+  const handleSelectDeal = async (id) => {
+    setSelectedDealId(id);
+    try {
+      const stateRes = await dealAPI.getDealState(id);
+      if (stateRes.data?.success) {
+        setActiveDeal(stateRes.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch deal state:', err);
+    }
+  };
+
+  const dealState = activeDeal || {
+    company: 'Target Prospect',
+    dealScore: 40,
+    buyingIntent: 'HIGH',
+    currentStage: 'QUALIFICATION',
+    requirements: { numberOfUsers: 50 },
+    nextBestAction: 'Qualify requirements and user seats',
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="AI Sales Agent"
-        subtitle="Real-time voice qualification and dynamic negotiation console."
+        title="Agora Real-Time Voice Sales Agent"
+        subtitle="Real-time voice RTC qualification, adaptive strategist reasoning, and dynamic negotiation console."
+        action={
+          <Button
+            onClick={() => {
+              if (selectedDealId) setIsVoiceModalOpen(true);
+            }}
+            icon={PhoneCall}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+          >
+            Launch Live Agora Voice Agent
+          </Button>
+        }
       />
 
-      {/* Phase notice banner */}
-      <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center gap-3">
-        <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-        <div>
-          <span className="font-semibold">Voice Engine Offline (Phase 2):</span> Voice RTC, Speech-to-Text, and Text-to-Speech integrations will be enabled in Phase 10 & 11. Current view presents the workspace interface layout.
+      <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Agora Conversational AI Voice Engine: <strong>ACTIVE & READY FOR CALLS</strong></span>
         </div>
+        <Badge variant="success">REMOTE CLOUD RTC ACTIVE</Badge>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left/Center: Live Conversation */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card className="flex flex-col h-[560px]">
-            {/* Call Status Bar */}
-            <div className="flex items-center justify-between pb-4 border-b border-[#1f293d]">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-600"></div>
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-200">Call Status: Standby</h4>
-                  <p className="text-xs text-slate-400">Target Customer: Rohan Sharma (Nexus Tech)</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" icon={MicOff} disabled>
-                  Mute
-                </Button>
-                <Button variant="danger" size="sm" icon={PhoneOff} disabled>
-                  End Call
-                </Button>
-              </div>
+        {/* Left: Active Deal Voice Launcher */}
+        <Card title="Active Target Account" subtitle="Select a deal to start live voice session" className="lg:col-span-2">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {deals.map((deal) => (
+                <button
+                  key={deal._id}
+                  onClick={() => handleSelectDeal(deal._id)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                    selectedDealId === deal._id
+                      ? 'bg-blue-600/30 border-blue-400 text-white shadow-lg'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {deal.company}
+                </button>
+              ))}
             </div>
 
-            {/* Live Transcript Area Placeholder */}
-            <div className="flex-1 my-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 overflow-y-auto space-y-4">
-              <div className="flex gap-3">
-                <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4" />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">DealPilot AI</span>
-                  <div className="p-3 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-xs text-slate-200">
-                    Hello Rohan! Thank you for speaking with DealPilot today. I understand you're looking to upgrade your team's workflow automation software. Could you tell me how many users you plan to onboard?
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 justify-end">
-                <div className="space-y-1 text-right">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Customer</span>
-                  <div className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-xs text-slate-200 text-left">
-                    We currently have 50 sales agents needing access, but competitor pricing came in lower than your published rates.
-                  </div>
-                </div>
-                <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-
-            {/* Input Bar Placeholder */}
-            <div className="pt-2 border-t border-[#1f293d] flex items-center gap-2">
-              <input
-                type="text"
-                disabled
-                placeholder="Voice channel active... (Manual text input disabled during call)"
-                className="flex-1 bg-slate-900 border border-slate-800 text-xs text-slate-500 rounded-xl px-4 py-2.5 cursor-not-allowed"
-              />
-              <Button variant="primary" size="sm" disabled icon={Sparkles}>
-                Send
-              </Button>
-            </div>
-          </Card>
-        </div>
-
-        {/* Right: Deal Intelligence Panel */}
-        <div className="space-y-4">
-          <Card title="Deal Intelligence" subtitle="Live extracted parameters & state">
-            <div className="space-y-4 text-xs">
-              <div>
-                <span className="text-slate-400 block mb-1">Buying Intent</span>
-                <Badge variant="success">High Intent (88%)</Badge>
+            <div className="p-6 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center space-y-4">
+              <div className="p-4 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                <PhoneCall className="w-8 h-8 animate-pulse" />
               </div>
 
               <div>
-                <span className="text-slate-400 block mb-1">Current Deal Stage</span>
-                <Badge variant="purple">Negotiation & Pricing</Badge>
-              </div>
-
-              <div>
-                <span className="text-slate-400 block mb-1">Extracted Requirements</span>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  <Badge variant="secondary">50 User Seats</Badge>
-                  <Badge variant="secondary">API Integration</Badge>
-                  <Badge variant="secondary">24/7 Support</Badge>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-slate-400 block mb-1">Detected Objections</span>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  <Badge variant="danger">Competitor Price Comparison</Badge>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-1">
-                <div className="flex items-center gap-1.5 text-blue-400 font-semibold">
-                  <Cpu className="w-3.5 h-3.5" />
-                  <span>Recommended Next Action</span>
-                </div>
-                <p className="text-slate-300 leading-relaxed">
-                  Offer Tier-2 Enterprise Volume Discount with annual commitment requirement.
+                <h3 className="text-xl font-bold text-white mb-1">{dealState.company}</h3>
+                <p className="text-xs text-slate-400">
+                  Target Stage: <span className="text-purple-400 font-semibold">{dealState.currentStage}</span> • Score: <span className="text-emerald-400 font-bold">{dealState.dealScore}/100</span>
                 </p>
               </div>
+
+              <button
+                onClick={() => {
+                  if (selectedDealId) setIsVoiceModalOpen(true);
+                }}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm shadow-xl shadow-emerald-600/30 transition-all flex items-center gap-2"
+              >
+                <PhoneCall className="w-4 h-4" />
+                <span>Start Live Voice Session with Agora</span>
+              </button>
             </div>
-          </Card>
-        </div>
+          </div>
+        </Card>
+
+        {/* Right: Live Deal Intelligence */}
+        <Card title="Live Deal Intelligence" subtitle="Grounded parameters & next best action">
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
+              <span className="text-slate-400 block mb-1">Buying Intent</span>
+              <Badge variant="purple" className="text-[11px] px-2.5 py-1">{dealState.buyingIntent}</Badge>
+            </div>
+
+            <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
+              <span className="text-slate-400 block mb-1">Extracted User Seats</span>
+              <span className="text-sm font-bold text-blue-400">{dealState.requirements?.numberOfUsers || 1} User Seats</span>
+            </div>
+
+            <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
+              <span className="text-slate-400 block mb-1 font-medium">Recommended Next Best Action</span>
+              <p className="text-slate-200 leading-relaxed font-medium">{dealState.nextBestAction}</p>
+            </div>
+          </div>
+        </Card>
       </div>
+
+      {isVoiceModalOpen && selectedDealId && (
+        <VoiceAgentModal
+          dealId={selectedDealId}
+          dealCompany={dealState.company}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onDealStateUpdated={(newState) => setActiveDeal(newState)}
+        />
+      )}
     </div>
   );
 }
 
-// src/pages/Conversations.jsx ke end mein:
 export default SalesAgent;

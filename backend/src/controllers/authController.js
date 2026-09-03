@@ -5,7 +5,10 @@ import { validatePassword } from '../utils/validatePassword.js';
 
 // Utility to generate JWT
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET || 'fallback_jwt_secret', {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('FATAL: JWT_SECRET environment variable is not configured.');
+  }
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 };

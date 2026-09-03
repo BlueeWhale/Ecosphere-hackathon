@@ -4,7 +4,9 @@ export const connectDB = async () => {
   try {
     const connStr = process.env.MONGODB_URI;
     if (!connStr) {
-      throw new Error('MONGODB_URI environment variable is missing.');
+      throw new Error(
+        'FATAL: MONGODB_URI environment variable is missing. Please create a backend/.env file from .env.example and set MONGODB_URI.'
+      );
     }
     const conn = await mongoose.connect(connStr);
     console.log(`[MongoDB Connected]: ${conn.connection.host}`);

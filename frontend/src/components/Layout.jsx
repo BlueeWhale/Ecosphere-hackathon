@@ -1,13 +1,11 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import { DashboardLayout } from './layout/DashboardLayout';
 
 export default function Layout() {
   return (
-    <div className="app-layout">
-      {/* Dynamic nested routes render yahan hote hain */}
-      <main>
-        <Outlet />
-      </main>
-    </div>
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
   );
 }

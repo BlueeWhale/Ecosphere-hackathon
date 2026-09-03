@@ -3,6 +3,11 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export const ProtectedRoute = ({ children }) => {
+  // DEMO MODE ONLY — authentication bypass enabled for hackathon demo
+  if (import.meta.env.VITE_DEMO_MODE === 'true') {
+    return children;
+  }
+
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 

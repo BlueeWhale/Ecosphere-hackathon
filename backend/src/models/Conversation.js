@@ -2,6 +2,9 @@ import mongoose from 'mongoose';
 
 const conversationSchema = new mongoose.Schema(
   {
+    deal: { type: mongoose.Schema.Types.ObjectId, ref: 'Deal', index: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    sessionId: { type: String, index: true },
     lead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     startedAt: { type: Date, default: Date.now },
