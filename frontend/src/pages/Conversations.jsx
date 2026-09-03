@@ -54,3 +54,6 @@ export function Conversations() {
     </div>
   );
 }
+
+// src/pages/Conversations.jsx ke end mein:
+export default Conversations;

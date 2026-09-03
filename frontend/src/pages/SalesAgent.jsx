@@ -133,3 +133,6 @@ export function SalesAgent() {
     </div>
   );
 }
+
+// src/pages/Conversations.jsx ke end mein:
+export default SalesAgent;

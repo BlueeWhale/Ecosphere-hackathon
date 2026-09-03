@@ -61,3 +61,6 @@ export function KnowledgeBase() {
     </div>
   );
 }
+
+// src/pages/Conversations.jsx ke end mein:
+export default KnowledgeBase;

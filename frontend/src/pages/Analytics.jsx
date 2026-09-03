@@ -26,3 +26,6 @@ export function Analytics() {
     </div>
   );
 }
+
+// src/pages/Analytics.jsx ke sabse last mein add karein:
+export default Analytics;

@@ -101,3 +101,6 @@ export function Dashboard() {
     </div>
   );
 }
+
+// src/pages/Conversations.jsx ke end mein:
+export default Dashboard;

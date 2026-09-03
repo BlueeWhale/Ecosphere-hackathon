@@ -39,3 +39,6 @@ export function Integrations() {
     </div>
   );
 }
+
+// src/pages/Conversations.jsx ke end mein:
+export default Integrations;

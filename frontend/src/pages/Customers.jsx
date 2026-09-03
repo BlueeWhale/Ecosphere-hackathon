@@ -63,3 +63,6 @@ export function Customers() {
     </div>
   );
 }
+
+// src/pages/Conversations.jsx ke end mein:
+export default Customers;

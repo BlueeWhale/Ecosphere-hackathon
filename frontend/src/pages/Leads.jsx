@@ -81,3 +81,6 @@ export function Leads() {
     </div>
   );
 }
+
+// src/pages/Conversations.jsx ke end mein:
+export default Leads;

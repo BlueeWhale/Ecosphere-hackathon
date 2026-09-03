@@ -35,3 +35,6 @@ export function Calendar() {
     </div>
   );
 }
+
+// Default export added to resolve Vite import error
+export default Calendar;
