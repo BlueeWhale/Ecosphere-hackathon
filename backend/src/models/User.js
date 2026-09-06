@@ -8,6 +8,14 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Name is required'],
       trim: true,
     },
+    age: { type: Number, min: 13, max: 120 },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'non-binary', 'prefer-not-to-say', 'other'],
+      default: 'prefer-not-to-say',
+    },
+    organizationName: { type: String, trim: true, default: '' },
+    organizationAddress: { type: String, trim: true, default: '' },
     email: {
       type: String,
       required: [true, 'Email is required'],

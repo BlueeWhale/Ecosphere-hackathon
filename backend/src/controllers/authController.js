@@ -52,7 +52,7 @@ const ensureCompany = async (name, email) => {
 // @desc    Register a new user
 // @route   POST /api/auth/register
 export const register = asyncHandler(async (req, res) => {
-  const { name, email, password, confirmPassword } = req.body;
+  const { name, email, age, gender, organizationName, organizationAddress, password, confirmPassword } = req.body;
 
   if (!name || !email || !password) {
     res.status(400);
@@ -83,6 +83,10 @@ export const register = asyncHandler(async (req, res) => {
   const user = await User.create({
     name: name.trim(),
     email: normalizedEmail,
+    age: age ? Number(age) : undefined,
+    gender: gender || 'prefer-not-to-say',
+    organizationName: organizationName?.trim() || '',
+    organizationAddress: organizationAddress?.trim() || '',
     password,
     role: 'user',
     tenantId: company._id,

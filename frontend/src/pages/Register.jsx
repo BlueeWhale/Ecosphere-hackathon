@@ -14,6 +14,10 @@ const PASSWORD_RULES = [
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('prefer-not-to-say');
+  const [organizationName, setOrganizationName] = useState('');
+  const [organizationAddress, setOrganizationAddress] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,7 +38,7 @@ export default function Register() {
     e.preventDefault();
     setError('');
 
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !age || !gender || !organizationName || !organizationAddress || !password || !confirmPassword) {
       setError('Please fill in all required fields');
       return;
     }
@@ -51,7 +55,12 @@ export default function Register() {
 
     try {
       setIsSubmitting(true);
-      const authData = await register(name, email, password, confirmPassword);
+      const authData = await register(name, email, password, confirmPassword, {
+        age,
+        gender,
+        organizationName,
+        organizationAddress,
+      });
       const targetRoute = getDashboardRouteForRole(authData?.user?.role);
       navigate(targetRoute, { replace: true });
     } catch (err) {
@@ -156,6 +165,33 @@ export default function Register() {
                   placeholder="Rishabh Kumar"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Age</label>
+                <input type="number" min="13" max="120" required value={age} onChange={(e) => setAge(e.target.value)} className="block w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Your age" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Gender</label>
+                <select required value={gender} onChange={(e) => setGender(e.target.value)} className="block w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                  <option value="prefer-not-to-say">Prefer not to say</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                  <option value="non-binary">Non-binary</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Organization Name</label>
+              <input type="text" required value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} className="block w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Your organization" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Organization Address</label>
+              <textarea required rows="2" value={organizationAddress} onChange={(e) => setOrganizationAddress(e.target.value)} className="block w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none" placeholder="Organization address" />
             </div>
 
             <div>

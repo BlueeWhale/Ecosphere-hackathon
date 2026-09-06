@@ -52,8 +52,8 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   };
 
-  const register = async (name, email, password, confirmPassword) => {
-    const response = await authAPI.register({ name, email, password, confirmPassword });
+  const register = async (name, email, password, confirmPassword, profile = {}) => {
+    const response = await authAPI.register({ name, email, password, confirmPassword, ...profile });
     if (response.data?.success) {
       const { user: userData, token } = response.data.data;
       if (token) localStorage.setItem('dealpilot_token', token);

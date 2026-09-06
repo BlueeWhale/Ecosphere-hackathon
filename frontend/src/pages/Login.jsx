@@ -135,6 +135,12 @@ export default function Login() {
                   <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-indigo-300 transition group-hover:gap-3">Continue <ArrowRight className="h-4 w-4" /></span>
                 </button>
               ))}
+
+              <div className="mt-8 border-t border-slate-800 pt-5 text-center">
+                <Link to="/register" className="inline-flex w-full items-center justify-center rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-4 py-3 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-500/20">
+                  Register a new account
+                </Link>
+              </div>
             </div>
           ) : (
             <div>
