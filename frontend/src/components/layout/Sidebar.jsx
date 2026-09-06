@@ -17,10 +17,14 @@ import {
   Sparkles,
   ChevronRight,
   User,
-  X
+  LogOut,
+  X,
+  Shield,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Badge } from '../ui/Badge';
 
-const navigationGroups = [
+const baseNavigationGroups = [
   {
     title: 'Main',
     items: [
@@ -56,10 +60,27 @@ const navigationGroups = [
   },
 ];
 
+const adminGroup = {
+  title: 'Administration',
+  items: [
+    { name: 'Admin Console', path: '/admin/dashboard', icon: Shield, badge: 'Admin' },
+  ],
+};
+
 export function Sidebar({ mobileOpen, setMobileOpen }) {
+  const { user, isAdmin, logout } = useAuth();
+
+  const navigationGroups = isAdmin
+    ? [adminGroup, ...baseNavigationGroups]
+    : baseNavigationGroups;
+
+  const displayName = user?.name || 'Sales Operator';
+  const displayEmail = user?.email || 'Not signed in';
+  const displayRole = user?.role === 'admin' ? 'Admin' : 'User';
+  const displayInitial = displayName.charAt(0).toUpperCase();
+
   return (
     <>
-      {/* Mobile Overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
@@ -67,13 +88,11 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
         />
       )}
 
-      {/* Sidebar Container */}
       <aside
         className={`fixed top-0 left-0 bottom-0 z-50 w-64 bg-[#0b0f17] border-r border-[#1f293d] flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Top Header */}
         <div>
           <div className="h-16 flex items-center justify-between px-6 border-b border-[#1f293d]">
             <div className="flex items-center gap-3">
@@ -97,8 +116,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
             </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-140px)] scrollbar-thin scrollbar-thumb-slate-800">
+          <nav className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-180px)] scrollbar-thin scrollbar-thumb-slate-800">
             {navigationGroups.map((group, groupIdx) => (
               <div key={groupIdx} className="space-y-1.5">
                 <p className="px-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
@@ -138,17 +156,27 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
           </nav>
         </div>
 
-        {/* User Footer Section */}
         <div className="p-4 border-t border-[#1f293d] bg-[#0d1322]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
-              <User className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 border border-indigo-400/40 flex items-center justify-center text-white font-semibold text-sm">
+              {displayInitial || <User className="w-5 h-5" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-200 truncate">Sales Operator</p>
-              <p className="text-[10px] text-slate-400 truncate">Demo Environment</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-slate-200 truncate">{displayName}</p>
+                <Badge variant={isAdmin ? 'warning' : 'secondary'}>{displayRole}</Badge>
+              </div>
+              <p className="text-[10px] text-slate-400 truncate mt-0.5">{displayEmail}</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-300"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Log out
+          </button>
         </div>
       </aside>
     </>

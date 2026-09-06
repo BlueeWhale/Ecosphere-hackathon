@@ -26,7 +26,7 @@ export function validateAgoraRestConfig() {
 }
 
 /**
- * Sends REST request to Agora Conversational AI REST API v2 to provision a remote cloud worker (UID: 999999).
+ * Sends REST request to Agora Conversational AI REST API v2 to join a remote cloud agent (UID: 999999).
  */
 export async function startRemoteAgent({
   channelName,
@@ -38,7 +38,7 @@ export async function startRemoteAgent({
 }) {
   const { isConfigured, appId, customerId, customerSecret } = validateAgoraRestConfig();
 
-  if (!isConfigured) {
+  if (!isConfigured || !process.env.BACKEND_PUBLIC_URL) {
     console.log('[Agora Cloud Agent]: Live Customer REST credentials not configured. Using local dev-session state.');
     return {
       agentSessionId: `mock_agent_session_${dealId}_${Date.now()}`,
@@ -48,14 +48,14 @@ export async function startRemoteAgent({
   }
 
   const authHeader = 'Basic ' + Buffer.from(`${customerId}:${customerSecret}`).toString('base64');
-  const endpoint = `https://api.agora.io/api/conversational-ai-agent/v2/projects/${appId}/start`;
+  const endpoint = `https://api.agora.io/api/conversational-ai-agent/v2/projects/${appId}/join`;
 
   const payload = {
-    name: `dealpilot_agent_${dealId}`,
+    name: `dealpilot_agent_${dealId}_${Date.now()}`,
     properties: {
-      channel_name: channelName,
+      channel: channelName,
+      token: agentToken,
       agent_rtc_uid: String(agentUid),
-      agent_rtc_token: agentToken,
       remote_rtc_uids: [String(customerUid)],
       turn_detection: {
         mode: 'server_vad',
@@ -86,7 +86,7 @@ export async function startRemoteAgent({
     });
 
     return {
-      agentSessionId: res.data?.agent_session_id || res.data?.id || `agent_session_${Date.now()}`,
+      agentSessionId: res.data?.agent_id || res.data?.agent_session_id || res.data?.id || `agent_session_${Date.now()}`,
       isMock: false,
       agentUid,
     };
@@ -102,7 +102,7 @@ export async function startRemoteAgent({
 }
 
 /**
- * Sends REST request to Agora Conversational AI REST API v2 to terminate the remote agent cloud worker.
+ * Sends REST request to Agora Conversational AI REST API v2 to leave the remote agent cloud worker.
  */
 export async function stopRemoteAgent({ agentSessionId }) {
   const { isConfigured, appId, customerId, customerSecret } = validateAgoraRestConfig();
@@ -112,12 +112,12 @@ export async function stopRemoteAgent({ agentSessionId }) {
   }
 
   const authHeader = 'Basic ' + Buffer.from(`${customerId}:${customerSecret}`).toString('base64');
-  const endpoint = `https://api.agora.io/api/conversational-ai-agent/v2/projects/${appId}/stop`;
+  const endpoint = `https://api.agora.io/api/conversational-ai-agent/v2/projects/${appId}/agents/${agentSessionId}/leave`;
 
   try {
     await axios.post(
       endpoint,
-      { agent_session_id: agentSessionId },
+      {},
       {
         headers: {
           Authorization: authHeader,

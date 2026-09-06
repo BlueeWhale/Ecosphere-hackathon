@@ -30,6 +30,16 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user',
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Company',
+      index: true,
+    },
+    googleId: {
+      type: String,
+      default: '',
+      index: true,
+    },
     avatar: {
       type: String,
       default: '',

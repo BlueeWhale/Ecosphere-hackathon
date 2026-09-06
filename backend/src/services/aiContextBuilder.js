@@ -44,6 +44,7 @@ export function buildAIContext(deal) {
       },
       competitors: deal.competitors || [],
       unresolvedObjections,
+      adaptiveContext: deal.adaptiveContext || {},
     },
     pricingContext: {
       quotedAmount: deal.pricingContext?.quotedAmount || 0,
@@ -54,6 +55,12 @@ export function buildAIContext(deal) {
       policyStatus: deal.pricingContext?.policyStatus || 'PENDING',
       authorizedDiscountCeilingPct: tierConfig.maximumDiscountPct,
       currency: deal.pricingContext?.currency || 'USD',
+      standardPrice: deal.pricingContext?.standardPrice || 0,
+      currentOffer: deal.pricingContext?.currentOffer || 0,
+      discountGiven: deal.pricingContext?.discountGiven || 0,
+      minimumPrice: deal.pricingContext?.minimumPrice || 0,
+      customerConcession: deal.pricingContext?.customerConcession || '',
+      companyConcession: deal.pricingContext?.companyConcession || '',
     },
     catalog: catalogSummary,
   };

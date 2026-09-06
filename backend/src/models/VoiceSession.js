@@ -4,9 +4,18 @@ const voiceSessionSchema = new mongoose.Schema(
   {
     deal: { type: mongoose.Schema.Types.ObjectId, ref: 'Deal', required: true, index: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
+    handoff: {
+      status: { type: String, enum: ['NONE', 'REQUESTED', 'CONNECTED'], default: 'NONE' },
+      reason: { type: String, default: '' },
+      humanUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      requestedAt: { type: Date },
+      connectedAt: { type: Date },
+    },
     channelName: { type: String, required: true, unique: true },
     sessionId: { type: String, required: true, unique: true, index: true },
     agoraUid: { type: Number, required: true },
+    agentSessionId: { type: String, default: '' },
     status: {
       type: String,
       enum: ['initiating', 'active', 'completed', 'failed'],

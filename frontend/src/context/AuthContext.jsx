@@ -3,15 +3,24 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
+export const getDashboardRouteForRole = (role) => {
+  if (role === 'admin') return '/admin/dashboard';
+  return '/dashboard';
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load authenticated user on initial app render
   useEffect(() => {
-    // DEMO MODE ONLY — authentication bypass enabled for hackathon demo
     if (import.meta.env.VITE_DEMO_MODE === 'true') {
-      setUser({ name: 'DealPilot Demo', email: 'demo@dealpilot.ai', role: 'admin' });
+      setUser({
+        _id: 'demo-user',
+        name: 'DealPilot Demo',
+        email: 'demo@dealpilot.ai',
+        role: 'admin',
+        avatar: '',
+      });
       setLoading(false);
       return;
     }
@@ -33,22 +42,32 @@ export const AuthProvider = ({ children }) => {
     checkAuthStatus();
   }, []);
 
-  const login = async (email, password) => {
-    const response = await authAPI.login({ email, password });
+  const login = async (email, password, accountType = 'company') => {
+    const response = await authAPI.login({ email, password, accountType });
     if (response.data?.success) {
-      const { user, token } = response.data.data;
+      const { user: userData, token } = response.data.data;
       if (token) localStorage.setItem('dealpilot_token', token);
-      setUser(user);
+      setUser(userData);
     }
     return response.data;
   };
 
-  const register = async (name, email, password) => {
-    const response = await authAPI.register({ name, email, password });
+  const register = async (name, email, password, confirmPassword) => {
+    const response = await authAPI.register({ name, email, password, confirmPassword });
     if (response.data?.success) {
-      const { user, token } = response.data.data;
+      const { user: userData, token } = response.data.data;
       if (token) localStorage.setItem('dealpilot_token', token);
-      setUser(user);
+      setUser(userData);
+    }
+    return response.data;
+  };
+
+  const googleLogin = async (googleAuthData) => {
+    const response = await authAPI.googleLogin(googleAuthData);
+    if (response.data?.success) {
+      const { user: userData, token } = response.data.data;
+      if (token) localStorage.setItem('dealpilot_token', token);
+      setUser(userData);
     }
     return response.data;
   };
@@ -70,10 +89,13 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated: !!user,
         loading,
+        isAdmin: user?.role === 'admin',
         login,
         register,
+        googleLogin,
         logout,
         setUser,
+        getDashboardRoute: () => getDashboardRouteForRole(user?.role),
       }}
     >
       {children}

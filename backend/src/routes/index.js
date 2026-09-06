@@ -1,5 +1,6 @@
 import express from 'express';
 import authRoutes from './authRoutes.js';
+import adminRoutes from './adminRoutes.js';
 import leadRoutes from './leadRoutes.js';
 import customerRoutes from './customerRoutes.js';
 import conversationRoutes from './conversationRoutes.js';
@@ -25,6 +26,9 @@ router.get('/health', (req, res) => {
 
 // Mount Authentication Routes
 router.use('/auth', authRoutes);
+
+// Mount Admin Routes (protect + requireRole('admin') enforced inside)
+router.use('/admin', adminRoutes);
 
 // Protected Resource Routes
 router.use('/leads', protect, leadRoutes);

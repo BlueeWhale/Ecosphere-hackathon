@@ -5,11 +5,19 @@ import {
   createKnowledgeDoc,
   updateKnowledgeDoc,
   deleteKnowledgeDoc,
+  searchKnowledge,
 } from '../controllers/knowledgeController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.route('/').get(getKnowledgeDocs).post(createKnowledgeDoc);
-router.route('/:id').get(getKnowledgeDoc).put(updateKnowledgeDoc).patch(updateKnowledgeDoc).delete(deleteKnowledgeDoc);
+router.post('/search', protect, searchKnowledge);
+router.route('/').get(protect, getKnowledgeDocs).post(protect, createKnowledgeDoc);
+router
+  .route('/:id')
+  .get(protect, getKnowledgeDoc)
+  .put(protect, updateKnowledgeDoc)
+  .patch(protect, updateKnowledgeDoc)
+  .delete(protect, deleteKnowledgeDoc);
 
 export default router;

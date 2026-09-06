@@ -1,11 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Plus, Search, Filter, MoreHorizontal, Radio, ArrowRight } from 'lucide-react';
-import { dealAPI } from '../services/api';
+import { dealAPI, leadAPI } from '../services/api';
 
 export function Leads() {
   const [leads, setLeads] = useState([]);
@@ -17,9 +17,14 @@ export function Leads() {
     async function loadRealLeads() {
       try {
         setLoading(true);
-        const res = await dealAPI.getDeals();
-        if (res.data?.success && Array.isArray(res.data.data)) {
-          setLeads(res.data.data);
+        const leadRes = await leadAPI.getLeads();
+        if (leadRes.data?.success && Array.isArray(leadRes.data.data) && leadRes.data.data.length > 0) {
+          setLeads(leadRes.data.data);
+        } else {
+          const res = await dealAPI.getDeals();
+          if (res.data?.success && Array.isArray(res.data.data)) {
+            setLeads(res.data.data);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch real leads:', err);

@@ -254,6 +254,76 @@ export function DealState() {
           </div>
         )}
 
+        {displayState.adaptiveContext?.comparisonData && (
+          <div className="mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-4 text-xs">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white">Competitor Comparison</h3>
+                <p className="text-[11px] text-slate-400">
+                  Current {displayState.adaptiveContext.comparisonData.currentRequirements?.users || 1}-user requirement and live Deal State.
+                </p>
+              </div>
+              <Badge variant={displayState.adaptiveContext.comparisonData.verified ? 'success' : 'warning'}>
+                {displayState.adaptiveContext.comparisonData.verified ? 'SOURCE GROUNDED' : 'PARTIAL DATA'}
+              </Badge>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-800">
+              <table className="min-w-[720px] w-full text-left">
+                <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
+                  <tr>
+                    <th className="px-3 py-2">Capability</th>
+                    <th className="px-3 py-2">DealPilot</th>
+                    <th className="px-3 py-2">{displayState.adaptiveContext.comparisonData.competitor?.name || 'Competitor'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-slate-200">
+                  {[
+                    ['Price', displayState.adaptiveContext.comparisonData.dealPilot?.price ? `${displayState.adaptiveContext.comparisonData.dealPilot.priceCurrency} ${Number(displayState.adaptiveContext.comparisonData.dealPilot.price).toLocaleString()}` : 'Not configured', displayState.adaptiveContext.comparisonData.competitor?.price || 'Not verified'],
+                    ['Users', displayState.adaptiveContext.comparisonData.dealPilot?.users, displayState.adaptiveContext.comparisonData.competitor?.users],
+                    ['AI sales agent', displayState.adaptiveContext.comparisonData.dealPilot?.aiSalesAgent, displayState.adaptiveContext.comparisonData.competitor?.aiSalesAgent],
+                    ['CRM capabilities', displayState.adaptiveContext.comparisonData.dealPilot?.crmCapabilities, displayState.adaptiveContext.comparisonData.competitor?.crmCapabilities],
+                    ['Adaptive AI', displayState.adaptiveContext.comparisonData.dealPilot?.adaptiveAi, displayState.adaptiveContext.comparisonData.competitor?.adaptiveAi],
+                    ['Conversation memory', displayState.adaptiveContext.comparisonData.dealPilot?.conversationMemory, displayState.adaptiveContext.comparisonData.competitor?.conversationMemory],
+                    ['Negotiation AI', displayState.adaptiveContext.comparisonData.dealPilot?.negotiationAi, displayState.adaptiveContext.comparisonData.competitor?.negotiationAi],
+                    ['Human handoff', displayState.adaptiveContext.comparisonData.dealPilot?.humanHandoff, displayState.adaptiveContext.comparisonData.competitor?.humanHandoff],
+                    ['Integrations', displayState.adaptiveContext.comparisonData.dealPilot?.integrations, displayState.adaptiveContext.comparisonData.competitor?.integrations],
+                    ['Implementation', displayState.adaptiveContext.comparisonData.dealPilot?.implementation, displayState.adaptiveContext.comparisonData.competitor?.implementation],
+                    ['Support', displayState.adaptiveContext.comparisonData.dealPilot?.support, displayState.adaptiveContext.comparisonData.competitor?.support],
+                  ].map(([label, dealPilotValue, competitorValue]) => (
+                    <tr key={label}>
+                      <td className="px-3 py-2 text-slate-400 font-medium">{label}</td>
+                      <td className="px-3 py-2">{dealPilotValue || 'Not verified'}</td>
+                      <td className="px-3 py-2">{competitorValue || 'Not verified'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <span className="text-slate-400 block mb-1">Recommended option</span>
+                <Badge variant="primary">{displayState.adaptiveContext.comparisonData.recommendation?.option || 'REVIEW'}</Badge>
+              </div>
+              <div className="md:col-span-2">
+                <span className="text-slate-400 block mb-1">Reason</span>
+                <p className="text-slate-200">{displayState.adaptiveContext.comparisonData.recommendation?.reason}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <span className="text-slate-400 block mb-1">Key advantages</span>
+                <p className="text-emerald-300">{displayState.adaptiveContext.comparisonData.advantages?.join(' • ')}</p>
+              </div>
+              <div>
+                <span className="text-slate-400 block mb-1">Key disadvantages / unknowns</span>
+                <p className="text-amber-300">{displayState.adaptiveContext.comparisonData.disadvantages?.join(' • ')}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Next Best Action Banner */}
         <div className="mt-4 p-4 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center gap-3">
           <BrainCircuit className="w-5 h-5 text-blue-400 shrink-0" />

@@ -12,7 +12,18 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const isDev = process.env.NODE_ENV !== 'production';
+      const isLocalhost = !origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+      if (isDev && isLocalhost) {
+        return callback(null, true);
+      }
+      if (origin === allowedOrigin) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   })
 );

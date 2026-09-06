@@ -49,6 +49,12 @@ const pricingContextSchema = new mongoose.Schema(
     },
     policyReason: { type: String, default: '' },
     specialTerms: { type: String, default: '' },
+    standardPrice: { type: Number, default: 0 },
+    currentOffer: { type: Number, default: 0 },
+    discountGiven: { type: Number, default: 0 },
+    minimumPrice: { type: Number, default: 0 },
+    customerConcession: { type: String, default: '' },
+    companyConcession: { type: String, default: '' },
     quotedAt: { type: Date },
   },
   { _id: false }
@@ -71,6 +77,7 @@ const dealSchema = new mongoose.Schema(
   {
     // Ownership
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
 
     // Associations
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
@@ -121,6 +128,7 @@ const dealSchema = new mongoose.Schema(
     painPoints: [{ type: String, trim: true }],
     importantFacts: [{ type: String, trim: true }],
     sentiment: { type: String, enum: ['positive', 'neutral', 'negative'], default: 'neutral' },
+    adaptiveContext: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
 
     // Pricing Context
     pricingContext: {

@@ -17,6 +17,7 @@ export function calculatePrice({
   numberOfUsers = 1,
   billingCycle = 'ANNUAL',
   requestedDiscountPct = 0,
+  commitmentMonths = null,
 }) {
   // 1. Normalize and Validate Inputs
   const normalizedTier = String(planTier).toUpperCase().trim();
@@ -36,6 +37,15 @@ export function calculatePrice({
     throw error;
   }
 
+  const normalizedCommitment = commitmentMonths === null || commitmentMonths === undefined
+    ? null
+    : Number(commitmentMonths);
+  if (normalizedCommitment !== null && (!Number.isInteger(normalizedCommitment) || normalizedCommitment < 1)) {
+    const error = new Error('commitmentMonths must be a positive integer');
+    error.statusCode = 400;
+    throw error;
+  }
+
   let normalizedBilling = String(billingCycle || '').toUpperCase().trim();
   if (!normalizedBilling || normalizedBilling === 'UNKNOWN') {
     normalizedBilling = BILLING_CYCLES.ANNUAL;
@@ -51,10 +61,13 @@ export function calculatePrice({
   const reqDiscount = Math.max(0, Math.min(100, Number(requestedDiscountPct) || 0));
 
   // 2. Determine Duration Months and Base Gross Amount
-  let durationMonths = 12;
+  let durationMonths = normalizedCommitment || 12;
   let baseUnitMonthlyRate = tierConfig.pricePerUserAnnual; // Annualized baseline
 
-  if (normalizedBilling === BILLING_CYCLES.MONTHLY) {
+  if (normalizedCommitment !== null && normalizedCommitment < 12) {
+    normalizedBilling = BILLING_CYCLES.MONTHLY;
+    baseUnitMonthlyRate = tierConfig.pricePerUserMonthly;
+  } else if (normalizedBilling === BILLING_CYCLES.MONTHLY) {
     durationMonths = 1;
     baseUnitMonthlyRate = tierConfig.pricePerUserMonthly;
   } else if (normalizedBilling === BILLING_CYCLES.MULTI_YEAR) {
@@ -73,7 +86,7 @@ export function calculatePrice({
     const matchedRule = tierConfig.volumeDiscountRules.find(
       (rule) => users >= rule.minUsers && users <= rule.maxUsers
     );
-    if (matchedRule) {
+    if (matchedRule && durationMonths >= 12) {
       volumeDiscountPct = matchedRule.discountPct;
     }
   }
@@ -85,7 +98,12 @@ export function calculatePrice({
   let policyStatus = POLICY_STATUS.APPROVED;
   let policyReason = '';
 
-  if (reqDiscount <= volumeDiscountPct) {
+  if (durationMonths < 12 && reqDiscount > 0) {
+    approvedDiscountPct = 0;
+    withinPolicy = false;
+    policyStatus = POLICY_STATUS.REJECTED;
+    policyReason = 'Discounts require a commitment of 12 months or more.';
+  } else if (reqDiscount <= volumeDiscountPct) {
     // Standard volume discount applies
     approvedDiscountPct = volumeDiscountPct;
     withinPolicy = true;

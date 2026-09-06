@@ -1,4 +1,4 @@
-﻿import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import {
   SALES_INTENTS,
   RECOMMENDED_ACTIONS,
@@ -9,6 +9,8 @@ import {
 } from '../constants/aiConstants.js';
 import { OBJECTION_TYPES, OBJECTION_TYPE_LIST } from '../constants/dealConstants.js';
 import { buildAIContext } from './aiContextBuilder.js';
+import { retrieveKnowledge } from './knowledgeRetrievalService.js';
+import { extractAdaptiveSignals, buildAdaptiveResponse } from './adaptiveConversationService.js';
 
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -28,7 +30,7 @@ function getGeminiClient() {
  * Engaged when GEMINI_API_KEY is not configured or if the Gemini API call fails.
  * Guarantees the application never crashes and continues with rule-based intelligence.
  */
-export function heuristicFallbackAnalyze(customerMessage, deal) {
+export function heuristicFallbackAnalyze(customerMessage, deal, conversationHistory = []) {
   const text = String(customerMessage || '').toLowerCase();
 
   // 1. Extract Number of Users
@@ -139,20 +141,29 @@ export function heuristicFallbackAnalyze(customerMessage, deal) {
     recommendedAction = RECOMMENDED_ACTIONS.PRESENT_PRICING;
   }
 
+  const adaptive = extractAdaptiveSignals(customerMessage, deal, conversationHistory);
+  const mergedCompetitors = Array.from(new Set([...competitors, ...adaptive.competitors]));
+  const mergedObjections = [...objections, ...adaptive.objections].filter(
+    (objection, index, all) => all.findIndex((candidate) => candidate.type === objection.type && candidate.text === objection.text) === index
+  );
+
   return {
-    intent,
-    customerGoal: `Inquiry regarding ${intent.toLowerCase().replace(/_/g, ' ')}`,
+    ...adaptive,
+    intent: adaptive.intent || intent,
+    customerGoal: `Inquiry regarding ${(adaptive.intent || intent).toLowerCase().replace(/_/g, ' ')}`,
     extractedRequirements: {
-      ...(extractedUsers ? { numberOfUsers: extractedUsers } : {}),
+      ...(adaptive.extractedRequirements?.numberOfUsers || extractedUsers
+        ? { numberOfUsers: adaptive.extractedRequirements?.numberOfUsers || extractedUsers }
+        : {}),
       ...(requiredFeatures.length > 0 ? { requiredFeatures } : {}),
       ...(timeline ? { timeline } : {}),
       ...(budget ? { budget } : {}),
     },
-    competitors,
-    objections,
-    requestedDiscountPct: requestedDiscount,
-    strategy,
-    recommendedAction,
+    competitors: mergedCompetitors,
+    objections: mergedObjections,
+    requestedDiscountPct: adaptive.requestedDiscountPct ?? requestedDiscount,
+    strategy: adaptive.strategy || strategy,
+    recommendedAction: adaptive.recommendedAction || recommendedAction,
     confidence: 0.88,
     isFallback: true,
   };
@@ -161,9 +172,23 @@ export function heuristicFallbackAnalyze(customerMessage, deal) {
 /**
  * Deterministic Heuristic Response Generator
  */
-export function heuristicFallbackResponse(customerMessage, deal, analysis) {
+export function heuristicFallbackResponse(customerMessage, deal, analysis, retrievedChunks = [], conversationHistory = []) {
+  const adaptiveText = buildAdaptiveResponse({ customerMessage, deal, analysis, conversationHistory });
+  if (adaptiveText) return adaptiveText;
+
   const users = analysis.extractedRequirements?.numberOfUsers || deal.numberOfUsers || 50;
   const comp = analysis.competitors?.[0];
+
+  // If relevant knowledge chunk is found, prioritize grounded answer from chunk text
+  if (retrievedChunks && retrievedChunks.length > 0) {
+    const topChunk = retrievedChunks[0];
+    if (topChunk.documentName?.includes('Security') || topChunk.text?.includes('encrypted') || topChunk.text?.includes('99.9%')) {
+      return `According to our ${topChunk.documentName}: ${topChunk.text.slice(0, 220)}...`;
+    }
+    if (topChunk.documentName?.includes('Competitor') || topChunk.text?.includes('vs')) {
+      return `Based on our ${topChunk.documentName}: ${topChunk.text.slice(0, 220)}...`;
+    }
+  }
 
   if (analysis.requestedDiscountPct !== null && analysis.requestedDiscountPct > 25) {
     return `I understand you're looking for a ${analysis.requestedDiscountPct}% concession. Our authorized enterprise discount caps at 25% for ${users} seats, but I can route your specific request to our VP of Sales for commercial review.`;
@@ -184,11 +209,28 @@ export function heuristicFallbackResponse(customerMessage, deal, analysis) {
   return `Thank you for the details. Based on your team's scope, I'd be happy to prepare a tailored proposal or schedule a product walkthrough with our technical team.`;
 }
 
+function normalizeResponseText(value) {
+  return String(value?.text || value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function preventRepeatedResponse(responseText, customerMessage, deal, analysis, conversationHistory) {
+  const previousAgentText = [...conversationHistory]
+    .reverse()
+    .find((turn) => turn.speaker === 'agent')?.text;
+
+  if (!previousAgentText || normalizeResponseText(responseText) !== normalizeResponseText(previousAgentText)) {
+    return responseText;
+  }
+
+  const nextResponse = buildAdaptiveResponse({ customerMessage, deal, analysis, conversationHistory });
+  return nextResponse || 'I want to keep this moving forward. What would you like to focus on next?';
+}
+
 /**
  * Analyzes a customer message using Gemini 2.5 Flash, extracting intent, requirements,
  * competitors, objections, and sales strategy.
  */
-export async function analyzeCustomerMessage({ customerMessage, deal }) {
+export async function analyzeCustomerMessage({ customerMessage, deal, conversationHistory = [] }) {
   if (!customerMessage || typeof customerMessage !== 'string' || !customerMessage.trim()) {
     const error = new Error('customerMessage is required and must be a non-empty string');
     error.statusCode = 400;
@@ -200,7 +242,7 @@ export async function analyzeCustomerMessage({ customerMessage, deal }) {
 
   if (!client) {
     console.log('[AI Strategist]: GEMINI_API_KEY not configured. Using deterministic fallback parser.');
-    return heuristicFallbackAnalyze(customerMessage, deal);
+    return heuristicFallbackAnalyze(customerMessage, deal, conversationHistory);
   }
 
   const systemInstruction = `You are DealPilot's Senior AI Sales Strategist.
@@ -213,13 +255,19 @@ STRICT CONSTRAINTS:
 3. Allowed intents: ${INTENT_LIST.join(', ')}
 4. Allowed actions: ${ACTION_LIST.join(', ')}
 5. Allowed strategies: ${STRATEGY_LIST.join(', ')}
-6. Allowed objection types: ${OBJECTION_TYPE_LIST.join(', ')}`;
+6. Allowed objection types: ${OBJECTION_TYPE_LIST.join(', ')}
+7. Treat changed user counts as updates to the existing requirement.
+8. Use prior conversation context for recall questions and never invent security claims.
+9. Never grant a discount without an approved business condition or pricing-engine result.`;
 
   const prompt = `Context:
 ${JSON.stringify(context, null, 2)}
 
 Customer Message:
 "${customerMessage}"
+
+Recent Conversation History:
+${JSON.stringify(conversationHistory.slice(-12), null, 2)}
 
 Extract structured JSON with keys:
 - intent (one of allowed intents)
@@ -248,6 +296,7 @@ Extract structured JSON with keys:
 
     // Validate and sanitize parsed output
     return {
+      ...extractAdaptiveSignals(customerMessage, deal, conversationHistory),
       intent: INTENT_LIST.includes(parsed.intent) ? parsed.intent : SALES_INTENTS.GENERAL_QUESTION,
       customerGoal: parsed.customerGoal || 'Customer sales discussion',
       extractedRequirements: {
@@ -282,37 +331,78 @@ Extract structured JSON with keys:
     };
   } catch (err) {
     console.warn('[AI Strategist Warning]: Gemini API call failed. Falling back to deterministic parser.', err.message);
-    return heuristicFallbackAnalyze(customerMessage, deal);
+    return heuristicFallbackAnalyze(customerMessage, deal, conversationHistory);
   }
 }
 
 /**
  * Generates a concise, context-grounded customer response.
+ * Integrates semantic vector RAG retrieval from Knowledge Base.
  */
-export async function generateSalesResponse({ customerMessage, deal, analysis }) {
+export async function generateSalesResponse({ customerMessage, deal, analysis, conversationHistory = [] }) {
   const client = getGeminiClient();
   const context = buildAIContext(deal);
 
+  // 1. Perform Semantic Vector RAG Retrieval from Knowledge Base
+  let retrievedChunks = [];
+  try {
+    retrievedChunks = await retrieveKnowledge(customerMessage);
+  } catch (ragErr) {
+    console.warn('[RAG Retrieval Warning]: Retrieval failed. Proceeding without Knowledge Base grounding.', ragErr.message);
+  }
+
+  const sources = Array.from(new Set(retrievedChunks.map((c) => c.documentName)));
+
+  // Build response helper wrapper that implements toString() for backwards compatibility
+  const buildResult = (text) => ({
+    text,
+    sources,
+    retrievedChunks,
+    toString() {
+      return this.text;
+    },
+  });
+
   if (!client) {
-    return heuristicFallbackResponse(customerMessage, deal, analysis);
+    const fallbackText = preventRepeatedResponse(
+      heuristicFallbackResponse(customerMessage, deal, analysis, retrievedChunks, conversationHistory),
+      customerMessage,
+      deal,
+      analysis,
+      conversationHistory
+    );
+    return buildResult(fallbackText);
   }
 
   const systemInstruction = `You are DealPilot's real-time AI sales agent.
 Generate a concise, professional response to the customer.
 
-RULES:
-1. Speak naturally, concisely (1-3 sentences), and professionally.
-2. Acknowledge the customer's point (e.g. competitor or price concern).
-3. Ground answers strictly in the known catalog and authorized pricing.
+GROUNDED RAG KNOWLEDGE RULES:
+1. Ground answers strictly in the retrieved company knowledge chunks provided in context when available.
+2. If retrieved knowledge chunks are present, cite or ground product features, SLA commitments (e.g. 99.9%), security policies (TLS 1.3, AES-256), and competitor comparison details in that retrieved information.
+3. If NO relevant knowledge chunks are found or information is not in the knowledge base, explicitly state that you do not have verified company information for that specific claim rather than inventing facts.
 4. NEVER promise an unauthorized discount above authorizedDiscountCeilingPct (${context.pricingContext.authorizedDiscountCeilingPct}%).
-5. If customer asks for more than authorized, say you can offer the approved tier or submit a request to management for special approval.
-6. NEVER invent nonexistent features or external prices.`;
+5. DO NOT calculate numerical quotes or override the Pricing Engine. Numerical quotes must come from official catalog calculations.`;
 
   const prompt = `Context:
 ${JSON.stringify(context, null, 2)}
 
+Retrieved Grounded Knowledge Chunks:
+${
+  retrievedChunks.length > 0
+    ? JSON.stringify(
+        retrievedChunks.map((c) => ({ source: c.documentName, content: c.text, score: c.score })),
+        null,
+        2
+      )
+    : 'No relevant company knowledge base chunks found above similarity threshold.'
+}
+
 Strategy Analysis:
 ${JSON.stringify(analysis, null, 2)}
+
+Recent Conversation History:
+${JSON.stringify(conversationHistory.slice(-12), null, 2)}
 
 Customer Message:
 "${customerMessage}"
@@ -329,9 +419,23 @@ Generate the customer-facing response string.`;
       },
     });
 
-    return response.text?.trim() || heuristicFallbackResponse(customerMessage, deal, analysis);
+    const responseText = preventRepeatedResponse(
+      response.text?.trim() || heuristicFallbackResponse(customerMessage, deal, analysis, retrievedChunks, conversationHistory),
+      customerMessage,
+      deal,
+      analysis,
+      conversationHistory
+    );
+    return buildResult(responseText);
   } catch (err) {
     console.warn('[AI Response Warning]: Gemini response generation failed. Using fallback response.', err.message);
-    return heuristicFallbackResponse(customerMessage, deal, analysis);
+    const fallbackText = preventRepeatedResponse(
+      heuristicFallbackResponse(customerMessage, deal, analysis, retrievedChunks, conversationHistory),
+      customerMessage,
+      deal,
+      analysis,
+      conversationHistory
+    );
+    return buildResult(fallbackText);
   }
 }

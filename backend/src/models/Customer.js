@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 const customerSchema = new mongoose.Schema(
   {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
     name: { type: String, required: [true, 'Customer name is required'], trim: true },
     email: { type: String, required: [true, 'Customer email is required'], trim: true, lowercase: true },
     phone: { type: String, trim: true, default: '' },

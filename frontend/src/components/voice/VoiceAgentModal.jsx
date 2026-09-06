@@ -258,7 +258,8 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
       });
 
       if (res.data?.success) {
-        const { response: agentText, analysis, dealState } = res.data.data;
+        const { response, analysis, dealState } = res.data.data;
+        const agentText = typeof response === 'string' ? response : response?.text || '';
         setLastAnalysis(analysis);
 
         // Add agent response to transcript UI

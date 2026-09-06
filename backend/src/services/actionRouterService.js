@@ -1,8 +1,9 @@
 import { Deal } from '../models/Deal.js';
+import { Booking } from '../models/Booking.js';
 import { updateDealMemory, formatDealState } from './dealMemoryService.js';
 import { getAvailability, createBooking } from './calendarService.js';
 import { triggerEscalation } from './escalationService.js';
-import { emitDealUpdate } from './socketService.js';
+import { emitDealUpdate, getIo } from './socketService.js';
 
 // Cache processed action IDs for idempotency
 const processedActionIds = new Set();
@@ -82,7 +83,36 @@ export async function routeAction({
 
       if (bookingRes.success && bookingRes.booking) {
         deal.calendarBooking = bookingRes.booking;
+        deal.currentStage = 'DEMO_REQUESTED';
         await deal.save();
+
+        await Booking.create({
+          deal: deal._id,
+          user: deal.user,
+          eventId: bookingRes.booking.eventId,
+          googleCalendarLink: bookingRes.booking.googleCalendarLink,
+          mode: bookingRes.booking.mode || bookingRes.mode,
+          isMock: Boolean(bookingRes.isMock),
+          status: bookingRes.booking.status,
+          summary: bookingRes.booking.summary,
+          meetingDate: bookingRes.booking.meetingDate,
+          meetingTime: bookingRes.booking.meetingTime,
+          durationMinutes: bookingRes.booking.durationMinutes,
+          attendeeEmail: bookingRes.booking.attendeeEmail,
+          startAt: bookingRes.booking.startAt,
+          endAt: bookingRes.booking.endAt,
+          bookedAt: bookingRes.booking.bookedAt,
+          conflict: false,
+          errorMessage: '',
+        });
+
+        const io = getIo();
+        if (io) {
+          io.emit('calendar:booked', {
+            dealId: deal._id.toString(),
+            booking: bookingRes.booking,
+          });
+        }
 
         await updateDealMemory(
           dealId,
@@ -102,6 +132,8 @@ export async function routeAction({
       actionResult = {
         actionType,
         success: bookingRes.success,
+        conflict: bookingRes.conflict || false,
+        error: bookingRes.error,
         booking: bookingRes.booking,
       };
       break;
@@ -112,6 +144,7 @@ export async function routeAction({
         dealId,
         sessionId,
         reason: payload.reason || 'Human sales representative assistance requested',
+        currentCustomerMessage: payload.currentCustomerMessage || '',
         triggeredBy: 'CUSTOMER_REQUEST',
       });
       actionResult = {

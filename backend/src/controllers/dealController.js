@@ -5,6 +5,29 @@ import * as dealMemoryService from '../services/dealMemoryService.js';
 import { calculateDealScore } from '../services/dealScoreService.js';
 import { determineNextBestAction } from '../services/nextBestActionService.js';
 import { calculatePrice } from '../services/pricingService.js';
+import { extractAdaptiveSignals } from '../services/adaptiveConversationService.js';
+import { buildCompetitorComparison } from '../services/competitorComparisonService.js';
+
+function adaptiveStateUpdates(message, deal) {
+  const signals = extractAdaptiveSignals(message, deal, []);
+  return {
+    adaptiveContext: {
+      priority: signals.priority || deal.adaptiveContext?.priority || null,
+      expansionPotential: signals.expansionPotential,
+      comparisonRequested: signals.comparisonRequested,
+      pricePressure: signals.pricePressure,
+      comparison: signals.comparison,
+      mainConcern: signals.mainConcern,
+      hiddenConcern: signals.hiddenConcern,
+      trustMode: signals.trustMode,
+      buyingStage: signals.buyingStage,
+      lastAction: signals.recommendedAction,
+    },
+    ...(signals.extractedRequirements?.numberOfUsers ? { numberOfUsers: signals.extractedRequirements.numberOfUsers } : {}),
+    ...(signals.buyingIntent && signals.buyingIntent !== 'UNKNOWN' ? { buyingIntent: signals.buyingIntent } : {}),
+    ...(signals.asksForDemo ? { currentStage: 'DEMO_REQUESTED' } : {}),
+  };
+}
 
 export const getDeals = factory.getAll(Deal);
 export const getDeal = factory.getOne(Deal);
@@ -16,6 +39,11 @@ export const createDeal = asyncHandler(async (req, res) => {
   const dealData = { ...req.body };
   if (req.user) {
     dealData.user = req.user._id || req.user.id;
+    if (req.user.role !== 'admin') {
+      dealData.tenantId = req.user.tenantId;
+      delete dealData.tenantId;
+      dealData.tenantId = req.user.tenantId;
+    }
   }
 
   const deal = new Deal(dealData);
@@ -171,6 +199,7 @@ export const analyzeMessageForDeal = asyncHandler(async (req, res) => {
   if (analysis.objections?.length > 0) {
     stateUpdates.objections = analysis.objections;
   }
+  Object.assign(stateUpdates, adaptiveStateUpdates(message, deal));
 
   let updatedState = dealMemoryService.formatDealState(deal);
   if (applyUpdates === true && Object.keys(stateUpdates).length > 0) {
@@ -244,6 +273,7 @@ export const respondToCustomer = asyncHandler(async (req, res) => {
     if (analysis.objections?.length > 0) {
       stateUpdates.objections = analysis.objections;
     }
+    Object.assign(stateUpdates, adaptiveStateUpdates(message, deal));
 
     if (Object.keys(stateUpdates).length > 0) {
       await dealMemoryService.updateDealMemory(
@@ -293,16 +323,37 @@ export const respondToCustomer = asyncHandler(async (req, res) => {
   }
 
   // 4. Generate grounded response
-  const responseText = await generateSalesResponse({
+  if (
+    (analysis.comparisonRequested || currentDeal.adaptiveContext?.comparison === 'ACTIVE' || currentDeal.competitors?.length > 0) &&
+    (analysis.competitors?.length > 0 || currentDeal.competitors?.length > 0)
+  ) {
+    const comparison = await buildCompetitorComparison(
+      currentDeal,
+      analysis.competitors?.[0] || currentDeal.competitors?.[0]
+    );
+    if (comparison) {
+      currentDeal.adaptiveContext = {
+        ...(currentDeal.adaptiveContext || {}),
+        comparisonData: comparison,
+      };
+      await currentDeal.save();
+    }
+  }
+
+  const responseResult = await generateSalesResponse({
     customerMessage: message,
     deal: currentDeal,
     analysis,
   });
 
+  const responseText = String(responseResult?.text || responseResult || '');
+  const sources = Array.isArray(responseResult?.sources) ? responseResult.sources : [];
+
   res.status(200).json({
     success: true,
     data: {
       response: responseText,
+      sources,
       analysis,
       dealState: dealMemoryService.formatDealState(currentDeal),
     },

@@ -26,6 +26,10 @@ export const createVoiceSession = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('Not authorized to start a voice session for this deal');
   }
+  if (req.user.role !== 'admin' && deal.tenantId?.toString() !== req.user.tenantId?.toString()) {
+    res.status(403);
+    throw new Error('Not authorized to start a voice session for this company deal');
+  }
 
   // Generate session and channel identifiers
   const sessionId = `vsession_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -53,6 +57,8 @@ export const createVoiceSession = asyncHandler(async (req, res) => {
   const session = new VoiceSession({
     deal: deal._id,
     user: req.user._id || req.user.id,
+    tenantId: deal.tenantId || req.user.tenantId,
+    agentSessionId: agentRemoteResult.agentSessionId || '',
     channelName,
     sessionId,
     agoraUid: customerUid,
@@ -176,6 +182,10 @@ export const processVoiceTranscript = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('Not authorized to process voice for this deal');
   }
+  if (req.user.role !== 'admin' && deal.tenantId?.toString() !== req.user.tenantId?.toString()) {
+    res.status(403);
+    throw new Error('Not authorized to process voice for this company deal');
+  }
 
   const result = await processVoiceTurn({
     dealId: deal._id,
@@ -263,10 +273,50 @@ export const getVoiceSession = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('Not authorized to view this voice session');
   }
+  if (req.user.role !== 'admin' && session.tenantId?.toString() !== req.user.tenantId?.toString()) {
+    res.status(403);
+    throw new Error('Not authorized to view this company voice session');
+  }
 
   res.status(200).json({
     success: true,
     data: session,
+  });
+});
+
+// POST /api/voice/session/:sessionId/join-human
+export const joinHumanVoiceSession = asyncHandler(async (req, res) => {
+  const session = await VoiceSession.findOne({ sessionId: req.params.sessionId }).populate('deal');
+  if (!session) {
+    res.status(404);
+    throw new Error('Voice session not found');
+  }
+  if (req.user.role !== 'admin' && session.tenantId?.toString() !== req.user.tenantId?.toString()) {
+    res.status(403);
+    throw new Error('Not authorized to join this voice session');
+  }
+
+  const humanUid = Number(req.user._id.toString().slice(-6), 16) % 800000 + 100000;
+  const token = generateRtcToken({ channelName: session.channelName, uid: humanUid });
+  if (session.agentSessionId) await stopRemoteAgent({ agentSessionId: session.agentSessionId });
+  session.handoff = {
+    ...(session.handoff?.toObject?.() || session.handoff || {}),
+    status: 'CONNECTED',
+    humanUser: req.user._id,
+    connectedAt: new Date(),
+  };
+  await session.save();
+
+  res.json({
+    success: true,
+    data: {
+      channelName: session.channelName,
+      appId: token.appId,
+      token: token.token,
+      uid: humanUid,
+      contextPack: session.deal?.escalation?.contextPack || null,
+      transcriptTurns: session.transcriptTurns,
+    },
   });
 });
 

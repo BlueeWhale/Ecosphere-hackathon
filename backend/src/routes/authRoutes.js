@@ -7,6 +7,8 @@ import {
   updateProfile,
   changePassword,
   forgotPassword,
+  getGoogleAuthUrl,
+  googleAuth,
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -16,6 +18,8 @@ router.post('/register', register);
 router.post('/login', login);
 router.post('/logout', logout);
 router.post('/forgot-password', forgotPassword);
+router.get('/google/url', getGoogleAuthUrl);
+router.post('/google', googleAuth);
 
 // Protected routes
 router.get('/me', protect, getMe);

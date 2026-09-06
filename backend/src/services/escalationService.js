@@ -7,7 +7,12 @@ import { emitDealUpdate } from './socketService.js';
 /**
  * Builds a structured Escalation Context Pack for human sales representative takeover.
  */
-export async function buildEscalationContextPack(dealId, sessionId, reason = 'Human sales assistance requested') {
+export async function buildEscalationContextPack(
+  dealId,
+  sessionId,
+  reason = 'Human sales assistance requested',
+  currentCustomerMessage = ''
+) {
   const deal = await Deal.findById(dealId);
   if (!deal) return null;
 
@@ -21,7 +26,7 @@ export async function buildEscalationContextPack(dealId, sessionId, reason = 'Hu
     if (session && session.transcriptTurns?.length > 0) {
       const turns = session.transcriptTurns;
       latestMessage = turns[turns.length - 1]?.text || '';
-      summary = turns.slice(-4).map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join(' | ');
+      summary = turns.slice(-20).map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join(' | ');
     }
   }
 
@@ -38,8 +43,17 @@ export async function buildEscalationContextPack(dealId, sessionId, reason = 'Hu
     competitors: deal.competitors || [],
     objections: deal.objectionsList || [],
     pricingContext: deal.pricingContext,
+    adaptiveContext: deal.adaptiveContext || {},
+    negotiationHistory: {
+      standardPrice: deal.pricingContext?.standardPrice || 0,
+      currentOffer: deal.pricingContext?.currentOffer || 0,
+      discountGiven: deal.pricingContext?.discountGiven || 0,
+      minimumPrice: deal.pricingContext?.minimumPrice || 0,
+      customerConcession: deal.pricingContext?.customerConcession || '',
+      companyConcession: deal.pricingContext?.companyConcession || '',
+    },
     conversationSummary: summary || 'Active voice session in progress.',
-    latestCustomerMessage: latestMessage || 'Customer requested human sales assistance.',
+    latestCustomerMessage: currentCustomerMessage || latestMessage || 'Customer requested human sales assistance.',
     nextBestAction: deal.nextBestAction,
     escalationReason: reason,
     triggeredAt: new Date(),
@@ -49,11 +63,17 @@ export async function buildEscalationContextPack(dealId, sessionId, reason = 'Hu
 /**
  * Triggers human escalation on a deal.
  */
-export async function triggerEscalation({ dealId, sessionId, reason = 'Pricing policy approval limit exceeded', triggeredBy = 'AI_STRATEGIST' }) {
+export async function triggerEscalation({
+  dealId,
+  sessionId,
+  reason = 'Pricing policy approval limit exceeded',
+  triggeredBy = 'AI_STRATEGIST',
+  currentCustomerMessage = '',
+}) {
   const deal = await Deal.findById(dealId);
   if (!deal) return null;
 
-  const contextPack = await buildEscalationContextPack(dealId, sessionId, reason);
+  const contextPack = await buildEscalationContextPack(dealId, sessionId, reason, currentCustomerMessage);
 
   deal.escalation = {
     status: 'ESCALATION_REQUESTED',

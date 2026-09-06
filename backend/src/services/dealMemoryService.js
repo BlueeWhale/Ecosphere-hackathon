@@ -46,6 +46,7 @@ export function formatDealState(deal) {
       importantFacts: deal.importantFacts || [],
       sentiment: deal.sentiment || 'neutral',
     },
+    adaptiveContext: deal.adaptiveContext || {},
     pricingContext: deal.pricingContext || {},
     nextBestAction: deal.nextBestAction || '',
     status: deal.status || 'open',
@@ -273,6 +274,13 @@ export async function updateDealMemory(dealId, updates = {}, userId, userRole) {
   }
   if (updates.sentiment && ['positive', 'neutral', 'negative'].includes(updates.sentiment)) {
     deal.sentiment = updates.sentiment;
+  }
+
+  if (updates.adaptiveContext && typeof updates.adaptiveContext === 'object') {
+    deal.adaptiveContext = {
+      ...(deal.adaptiveContext || {}),
+      ...updates.adaptiveContext,
+    };
   }
 
   // 8. Pricing Context

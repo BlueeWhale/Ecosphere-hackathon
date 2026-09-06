@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 const followUpSchema = new mongoose.Schema(
   {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     lead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
     type: { type: String, required: true, default: 'email' },
