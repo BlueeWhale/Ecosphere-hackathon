@@ -17,7 +17,7 @@ const productSchema = new mongoose.Schema(
     plan: { type: String, default: 'Standard' }, // legacy field
     tier: {
       type: String,
-      enum: ['STARTER', 'GROWTH', 'ENTERPRISE'],
+      enum: ['STARTER', 'PROFESSIONAL', 'ENTERPRISE', 'GROWTH', 'ENTERPRISE_ANNUAL'],
       required: true,
       uppercase: true,
       unique: true,
@@ -25,6 +25,9 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: [true, 'Price is required'], min: 0 }, // legacy monthly seat price
     pricePerUserMonthly: { type: Number, required: true, min: 0 },
     pricePerUserAnnual: { type: Number, required: true, min: 0 },
+    priceAmount: { type: Number, required: true, min: 0 },
+    pricePeriod: { type: String, enum: ['month', 'year'], required: true },
+    sixMonthAmount: { type: Number, min: 0, default: null },
     currency: { type: String, default: 'USD' },
     minimumUsers: { type: Number, default: 1 },
     maximumUsers: { type: Number, default: 10000 },
@@ -43,17 +46,17 @@ export const Product = mongoose.model('Product', productSchema);
  * Ensures the product catalog in MongoDB has the official DealPilot tiers.
  */
 export async function seedDefaultProducts() {
-  const count = await Product.countDocuments();
-  if (count > 0) return;
-
   const defaultProducts = Object.values(PRICING_TIERS).map((t) => ({
     name: t.name,
     description: t.description,
     plan: t.name,
     tier: t.tier,
-    price: t.pricePerUserMonthly,
-    pricePerUserMonthly: t.pricePerUserMonthly,
-    pricePerUserAnnual: t.pricePerUserAnnual,
+    price: t.pricePerUserMonthly ?? t.priceAmount,
+    pricePerUserMonthly: t.pricePerUserMonthly ?? t.priceAmount,
+    pricePerUserAnnual: t.pricePerUserAnnual ?? t.priceAmount,
+    priceAmount: t.priceAmount,
+    pricePeriod: t.pricePeriod,
+    sixMonthAmount: t.sixMonthAmount,
     currency: 'USD',
     minimumUsers: t.minimumUsers,
     maximumUsers: t.maximumUsers,
@@ -64,6 +67,12 @@ export async function seedDefaultProducts() {
     status: 'active',
   }));
 
-  await Product.insertMany(defaultProducts);
-  console.log('[Product Catalog Seeded]: Starter, Growth, Enterprise tiers initialized in MongoDB.');
+  await Product.bulkWrite(defaultProducts.map((product) => ({
+    updateOne: {
+      filter: { tier: product.tier },
+      update: { $set: product },
+      upsert: true,
+    },
+  })));
+  console.log('[Product Catalog Seeded]: Official DealPilot pricing tiers synchronized in MongoDB.');
 }

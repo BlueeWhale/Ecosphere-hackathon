@@ -57,28 +57,34 @@ export function calculatePrice({
     error.statusCode = 400;
     throw error;
   }
+  if (!tierConfig.allowedBillingCycles.includes(normalizedBilling)) {
+    normalizedBilling = tierConfig.allowedBillingCycles[0];
+  }
 
   const reqDiscount = Math.max(0, Math.min(100, Number(requestedDiscountPct) || 0));
 
   // 2. Determine Duration Months and Base Gross Amount
   let durationMonths = normalizedCommitment || 12;
-  let baseUnitMonthlyRate = tierConfig.pricePerUserAnnual; // Annualized baseline
+  let baseAmount = tierConfig.priceAmount;
 
   if (normalizedCommitment !== null && normalizedCommitment < 12) {
-    normalizedBilling = BILLING_CYCLES.MONTHLY;
-    baseUnitMonthlyRate = tierConfig.pricePerUserMonthly;
+    normalizedBilling = normalizedCommitment === 6 && tierConfig.sixMonthAmount
+      ? BILLING_CYCLES.SIX_MONTH
+      : BILLING_CYCLES.MONTHLY;
+    durationMonths = normalizedCommitment;
+    baseAmount = normalizedBilling === BILLING_CYCLES.SIX_MONTH
+      ? tierConfig.sixMonthAmount
+      : tierConfig.priceAmount;
   } else if (normalizedBilling === BILLING_CYCLES.MONTHLY) {
     durationMonths = 1;
-    baseUnitMonthlyRate = tierConfig.pricePerUserMonthly;
+    baseAmount = tierConfig.priceAmount;
+  } else if (normalizedBilling === BILLING_CYCLES.SIX_MONTH) {
+    durationMonths = 6;
+    baseAmount = tierConfig.sixMonthAmount || tierConfig.priceAmount;
   } else if (normalizedBilling === BILLING_CYCLES.MULTI_YEAR) {
-    durationMonths = 24; // 2-year term
-    // Multi-year commitment incentive (e.g. additional 5% off annual baseline)
-    const multiYearIncentive = tierConfig.multiYearAdditionalDiscountPct || 5;
-    baseUnitMonthlyRate = tierConfig.pricePerUserAnnual * (1 - multiYearIncentive / 100);
+    durationMonths = 24;
+    baseAmount = tierConfig.priceAmount * 2;
   }
-
-  // Base list amount before volume or discretionary discounts
-  const baseAmount = Math.round(baseUnitMonthlyRate * durationMonths * users);
 
   // 3. Determine Volume Discount
   let volumeDiscountPct = 0;
@@ -86,7 +92,7 @@ export function calculatePrice({
     const matchedRule = tierConfig.volumeDiscountRules.find(
       (rule) => users >= rule.minUsers && users <= rule.maxUsers
     );
-    if (matchedRule && durationMonths >= 12) {
+    if (matchedRule && durationMonths >= 12 && tierConfig.pricePeriod === 'year') {
       volumeDiscountPct = matchedRule.discountPct;
     }
   }
@@ -102,7 +108,12 @@ export function calculatePrice({
     approvedDiscountPct = 0;
     withinPolicy = false;
     policyStatus = POLICY_STATUS.REJECTED;
-    policyReason = 'Discounts require a commitment of 12 months or more.';
+    policyReason = 'Monthly and six-month plans do not receive discounts. Annual plans are eligible for negotiation.';
+  } else if (reqDiscount >= 15 && users < 200) {
+    approvedDiscountPct = volumeDiscountPct;
+    withinPolicy = false;
+    policyStatus = POLICY_STATUS.REQUIRES_APPROVAL;
+    policyReason = 'A 15% discount requires a 200+ user plan and commercial approval.';
   } else if (reqDiscount <= volumeDiscountPct) {
     // Standard volume discount applies
     approvedDiscountPct = volumeDiscountPct;
@@ -149,6 +160,8 @@ export function calculatePrice({
     finalAmount,
     totalSavings,
     effectivePerUserPerMonth,
+    priceAmount: baseAmount,
+    pricePeriod: normalizedBilling === BILLING_CYCLES.SIX_MONTH ? '6 months' : tierConfig.pricePeriod,
     withinPolicy,
     policyStatus,
     policyReason,

@@ -39,13 +39,15 @@ export async function seedDefaultKnowledgeDocs() {
         content: `DEALPILOT ENTERPRISE PRICING GUIDELINES 2026
 
 1. PRODUCT TIERS & SEAT RATES:
-- Starter Plan: $49/user/month ($39/user/month billed annually). Minimum 1 seat, maximum 10 seats. Features include standard AI qualification, basic CRM sync, and email follow-ups.
-- Growth Plan: $99/user/month ($79/user/month billed annually). Minimum 11 seats, maximum 50 seats. Features include adaptive AI negotiation, RAG knowledge integration, and Google Calendar booking.
-- Enterprise Suite: $199/user/month ($159/user/month billed annually). Minimum 51 seats, up to 10,000 seats. Features include real-time voice RTC, custom negotiation rules, and human agent escalation.
+- Starter: $100/month. Features include the AI Sales Agent, real-time conversational voice AI, lead management, conversation history, basic deal tracking, and follow-up management.
+- Professional: $200/month. Features include everything in Starter plus advanced AI sales conversations, customer qualification, objection handling, Buying Intent / Deal State, Competitive Price Comparator, sales pipeline analytics, and Human Handoff.
+- Enterprise: $500/month. Features include everything in Professional plus advanced sales intelligence, advanced deal management, full conversation analytics, advanced buying-intent insights, Intelligent Human Handoff, company and user administration, and role-based access control.
+- Growth: $5,000/year. Features include the AI Sales Agent, real-time voice conversations, lead management, conversation history, deal tracking, Buying Intent / Deal State, follow-ups, Price Comparator, and Human Handoff.
+- Enterprise Annual: $10,000/year. Features include everything in Growth plus advanced sales intelligence, advanced pipeline management, full conversation analytics, advanced buying-intent analysis, Intelligent Human Handoff, company and user administration, role-based access control, and enterprise-level sales management.
 
 2. VOLUME DISCOUNTS & CONCESSION RULES:
 - Tiered Volume Discounts: 11-50 users: 5% discount; 51-200 users: 15% discount; 201+ users: 20% discount.
-- Maximum Concession Ceiling: Hard limit cap of 25% discount across all plans.
+- Monthly plans do not receive discounts. Negotiation is considered only for annual plans.
 - Policy Approval Requirements: Any discount request exceeding standard tier limits up to 25% is automatically flagged. Any request above 25% requires VP Sales manual approval (policyStatus = REQUIRES_APPROVAL).`,
       },
       {
@@ -127,6 +129,26 @@ A: Yes, identifies competitor mentions (e.g. Salesforce) and schedules confirmed
 
     await KnowledgeDocument.insertMany(defaultDocs);
     console.log('[Knowledge Base Seeded]: 5 official DealPilot knowledge documents initialized in MongoDB.');
+  } else {
+    const pricingDocument = await KnowledgeDocument.findOne({ title: 'Enterprise Pricing Guidelines 2026' });
+    if (pricingDocument && !pricingDocument.content.includes('Starter: $100/month')) {
+      pricingDocument.content = `DEALPILOT ENTERPRISE PRICING GUIDELINES 2026
+
+1. PRODUCT PLANS:
+- Starter: $100/month.
+- Professional: $200/month.
+- Enterprise: $500/month.
+- Growth: $5,000/year.
+- Enterprise Annual: $10,000/year.
+
+2. NEGOTIATION RULES:
+- Monthly plans do not receive discounts.
+- Discounts and negotiation are considered only for annual plans.`;
+      pricingDocument.chunkCount = 0;
+      pricingDocument.status = 'pending';
+      await pricingDocument.save();
+      console.log('[Knowledge Base Updated]: Existing pricing guidance synchronized with the official catalog.');
+    }
   }
 
   // Ensure all documents in MongoDB are indexed into RAG vector chunks

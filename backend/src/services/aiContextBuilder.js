@@ -17,11 +17,13 @@ export function buildAIContext(deal) {
   const catalogSummary = Object.values(PRICING_TIERS).map((t) => ({
     tier: t.tier,
     name: t.name,
-    monthlyPerUser: t.pricePerUserMonthly,
-    annualPerUserPerMonth: t.pricePerUserAnnual,
+    price: t.priceAmount,
+    pricePeriod: t.pricePeriod,
+    sixMonthPrice: t.sixMonthAmount,
+    sixMonthPeriod: t.sixMonthAmount ? '6 months' : null,
     minUsers: t.minimumUsers,
     features: t.features,
-    maximumAllowedDiscount: `${t.maximumDiscountPct}%`,
+    discountPolicy: t.pricePeriod === 'month' ? 'No monthly discounts' : 'Annual negotiation flow applies',
   }));
 
   return {
