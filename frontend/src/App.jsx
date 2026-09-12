@@ -24,6 +24,7 @@ import FollowUps from './pages/FollowUps';
 import Analytics from './pages/Analytics';
 import Integrations from './pages/Integrations';
 import Settings from './pages/Settings';
+import Home from './page/Home';
 
 function AuthRedirect({ children, requireRole }) {
   const { isAuthenticated, loading, user } = useAuth();
@@ -46,18 +47,6 @@ function AuthRedirect({ children, requireRole }) {
   }
 
   return children;
-}
-
-function RootRedirect() {
-  const { isAuthenticated, user, loading } = useAuth();
-
-  if (loading) return null;
-
-  if (isAuthenticated) {
-    return <Navigate to={getDashboardRouteForRole(user?.role)} replace />;
-  }
-
-  return <Navigate to="/login" replace />;
 }
 
 export default function App() {
@@ -83,33 +72,34 @@ export default function App() {
             element={<ForgotPassword />}
           />
 
+          {/* Public commercial homepage */}
+          <Route path="/" element={<Home />} />
+
           {/* Protected Application Routes — Standard User Role Dashboard */}
           <Route
-            path="/"
             element={
               <ProtectedRoute>
                 <Layout />
               </ProtectedRoute>
             }
           >
-            <Route index element={<RootRedirect />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="sales-agent" element={<SalesAgent />} />
-            <Route path="leads" element={<Leads />} />
-            <Route path="customers" element={<Customers />} />
-            <Route path="conversations" element={<Conversations />} />
-            <Route path="deal-state" element={<DealState />} />
-            <Route path="products" element={<Products />} />
-            <Route path="knowledge-base" element={<KnowledgeBase />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="follow-ups" element={<FollowUps />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="integrations" element={<Integrations />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/sales-agent" element={<SalesAgent />} />
+            <Route path="/leads" element={<Leads />} />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/conversations" element={<Conversations />} />
+            <Route path="/deal-state" element={<DealState />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/knowledge-base" element={<KnowledgeBase />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/follow-ups" element={<FollowUps />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/settings" element={<Settings />} />
 
             {/* Admin Only Route — ProtectedRoute enforces role */}
             <Route
-              path="admin/dashboard"
+              path="/admin/dashboard"
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminDashboard />
@@ -119,7 +109,7 @@ export default function App() {
           </Route>
 
           {/* Fallback redirect */}
-          <Route path="*" element={<RootRedirect />} />
+          <Route path="*" element={<Home />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
