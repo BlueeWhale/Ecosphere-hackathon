@@ -39,11 +39,15 @@ export async function startRemoteAgent({
   const { isConfigured, appId, customerId, customerSecret } = validateAgoraRestConfig();
 
   if (!isConfigured || !process.env.BACKEND_PUBLIC_URL) {
-    console.log('[Agora Cloud Agent]: Live Customer REST credentials not configured. Using local dev-session state.');
+    const fallbackReason = !isConfigured
+      ? 'Agora REST credentials are missing or use placeholder values.'
+      : 'BACKEND_PUBLIC_URL is missing. Agora needs a public HTTPS webhook URL for /api/voice/agent-llm.';
+    console.log(`[Agora Cloud Agent]: ${fallbackReason} Using local dev-session state.`);
     return {
       agentSessionId: `mock_agent_session_${dealId}_${Date.now()}`,
       isMock: true,
       agentUid,
+      fallbackReason,
     };
   }
 
@@ -97,6 +101,7 @@ export async function startRemoteAgent({
       isMock: true,
       agentUid,
       error: err.message,
+      fallbackReason: `Agora cloud agent request failed: ${err.message}`,
     };
   }
 }

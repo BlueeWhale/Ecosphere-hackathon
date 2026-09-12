@@ -83,6 +83,7 @@ export const createVoiceSession = asyncHandler(async (req, res) => {
         agentSessionId: agentRemoteResult.agentSessionId,
       },
       isMock: sessionTokens.isMock || agentRemoteResult.isMock,
+      fallbackReason: agentRemoteResult.fallbackReason || '',
       expiresInSeconds: sessionTokens.expiresInSeconds,
     },
   });

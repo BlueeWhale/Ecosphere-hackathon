@@ -42,6 +42,7 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
   const [interimText, setInterimText] = useState('');
   const [lastAnalysis, setLastAnalysis] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [fallbackReason, setFallbackReason] = useState('');
   const [manualUtterance, setManualUtterance] = useState('');
 
   const customerClientRef = useRef(null);
@@ -90,6 +91,7 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
           customer,
           agent,
           isMock,
+          fallbackReason: sessionFallbackReason,
         } = sessionRes.data.data;
 
         if (isCancelled) return;
@@ -99,6 +101,7 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
         setChannelName(cName);
         setCustomerUid(customer?.uid);
         setAgentUid(agent?.uid || 999999);
+        setFallbackReason(sessionFallbackReason || '');
 
         // 2. Initialize SINGLE Customer Client in Browser
         const customerClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
@@ -126,8 +129,8 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
           }
         });
 
-        if (!isMock && appId && !appId.includes('demo_')) {
-          // Join Customer Client to Agora Channel and publish microphone
+        if (appId && !appId.includes('demo_')) {
+          // Join Customer Client to Agora Channel and publish microphone via REAL AGORA RTC
           await customerClient.join(appId, cName, customer.token, customer.uid);
           const micTrack = await AgoraRTC.createMicrophoneAudioTrack();
           customerAudioTrackRef.current = micTrack;
@@ -156,47 +159,73 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
           const recognition = new SpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
-          recognition.lang = 'en-US';
+          recognition.lang = navigator.language || 'en-US';
+          recognitionRef.current = recognition;
+
+          let silenceTimer = null;
+          let currentUtterance = '';
 
           recognition.onresult = (event) => {
-            let interim = '';
-            // Client-side barge-in interruption handler
             if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
               window.speechSynthesis.cancel();
             }
+
+            let liveText = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
-              const transcript = event.results[i][0].transcript;
-              if (event.results[i].isFinal) {
-                setInterimText('');
-                handleFinalTranscript(transcript, sId);
-              } else {
-                interim += transcript;
-              }
+              liveText += event.results[i][0].transcript;
             }
-            if (interim) {
-              setInterimText(interim);
+
+            if (liveText.trim()) {
+              currentUtterance = liveText.trim();
+              setInterimText(currentUtterance);
               setCallState(CALL_STATES.LISTENING);
+
+              if (silenceTimer) clearTimeout(silenceTimer);
+              silenceTimer = setTimeout(() => {
+                if (currentUtterance) {
+                  const textToSend = currentUtterance;
+                  currentUtterance = '';
+                  setInterimText('');
+                  try { recognition.stop(); } catch (_) {}
+                  handleFinalTranscript(textToSend, sId);
+                }
+              }, 1200);
             }
           };
 
           recognition.onerror = (err) => {
             console.warn('[STT Warning]: SpeechRecognition error:', err.error);
+            if (err.error === 'not-allowed') {
+              setErrorMessage('Microphone access denied. Click the mic icon in your browser address bar to Allow.');
+            }
           };
 
           recognition.onend = () => {
-            if (customerClientRef.current && callState !== CALL_STATES.ENDED) {
+            if (currentUtterance.trim()) {
+              const textToSend = currentUtterance.trim();
+              currentUtterance = '';
+              setInterimText('');
+              handleFinalTranscript(textToSend, sId);
+            }
+            if (recognitionRef.current && callState !== CALL_STATES.ENDED) {
               try {
-                recognition.start();
+                setTimeout(() => {
+                  if (recognitionRef.current && callState !== CALL_STATES.ENDED) {
+                    try { recognition.start(); } catch (_) {}
+                  }
+                }, 150);
               } catch (_) {}
             }
           };
 
+          // Start Web Speech Recognition directly
           try {
             recognition.start();
-            recognitionRef.current = recognition;
-          } catch (e) {
-            console.warn('[STT Notice]: SpeechRecognition auto-start blocked:', e);
+          } catch (startErr) {
+            console.warn('[STT Start Notice]:', startErr);
           }
+        } else {
+          setErrorMessage('Speech Recognition is not supported in this browser. Please use Google Chrome or Edge.');
         }
       } catch (err) {
         console.error('Failed to start genuine remote Agora voice call:', err);
@@ -276,8 +305,8 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
           onDealStateUpdated(dealState);
         }
 
-        // If local dev fallback mode, play audio synthesized speech
-        if (voiceMode === 'DEV_FALLBACK') {
+        // Play browser SpeechSynthesis if remote agent track is not active
+        if (!remoteAudioActive) {
           playDevFallbackSpeech(agentText);
         }
       }
@@ -304,12 +333,17 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
 
   // Toggle Microphone Mute
   const handleToggleMute = () => {
+    const nextMute = !isMuted;
+    setIsMuted(nextMute);
     if (customerAudioTrackRef.current) {
-      const nextState = !isMuted;
-      customerAudioTrackRef.current.setEnabled(!nextState);
-      setIsMuted(nextState);
-    } else {
-      setIsMuted(!isMuted);
+      customerAudioTrackRef.current.setEnabled(!nextMute);
+    }
+    if (recognitionRef.current) {
+      if (nextMute) {
+        try { recognitionRef.current.stop(); } catch (_) {}
+      } else {
+        try { recognitionRef.current.start(); } catch (_) {}
+      }
     }
   };
 
@@ -374,6 +408,11 @@ export function VoiceAgentModal({ dealId, dealCompany, onClose, onDealStateUpdat
               <p className="text-[11px] text-slate-400">
                 Channel: {channelName || 'Connecting...'} • Customer UID: {customerUid || '...'} • Remote Agent UID: {agentUid || 999999}
               </p>
+              {voiceMode === 'DEV_FALLBACK' && fallbackReason && (
+                <p className="mt-1 max-w-xl text-[10px] text-amber-300/80">
+                  {fallbackReason}
+                </p>
+              )}
             </div>
           </div>
 
