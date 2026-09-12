@@ -408,7 +408,11 @@ export function buildAdaptiveResponse({ customerMessage, deal, analysis, convers
     return 'I understand. Is the main concern your overall budget, the value you\'re getting, or the price compared with another provider?';
   }
   if (analysis.commitmentMonths !== null && analysis.commitmentMonths < 12) {
-    return 'In that case, the annual commitment discount would not apply. I can provide the standard pricing for a 3-month plan. Would you like me to proceed with that?';
+    if (analysis.commitmentMonths === 6) {
+      const sixMonthQuote = getConfiguredQuote(deal, pricingUsers, 0, 6);
+      return `For a 6-month commitment, the ${sixMonthQuote.planName} plan is ${formatMoney(sixMonthQuote.priceAmount, sixMonthQuote.currency)} / 6 months. Six-month plans do not receive discounts; discounts are considered only for annual plans. Would you like me to proceed with the six-month option?`;
+    }
+    return 'DealPilot offers monthly and six-month plans without discounts. Discounts are considered only for annual plans. Would you like to review the available monthly or six-month option?';
   }
   if (analysis.commitmentEligible && analysis.commitmentMonths >= 12 && (analysis.affirmativeReply || /\b(purchase|commit|buy)\b/i.test(lower))) {
     const committedQuote = getConfiguredQuote(deal, pricingUsers, 0, analysis.commitmentMonths);
